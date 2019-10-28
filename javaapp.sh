@@ -1,67 +1,23 @@
 #!/bin/bash
 ###################################
 # File Name: javaapp.sh
-# Author: nongxinkao
+# Author: NongXinKao
 ###################################
 
 cd `dirname $0`
 
 WORK_DIR=`pwd`
 
-FILE=$0
+SCRIPT_NAME=$0
 CMD=$1
-JAR_FILE=
-PARAM=$3
-PARAMS=$#
+JAR_FILE=$2
+PROFILE="default"
 
-case $2 in
-  odr)
-    JAR_FILE="otc-order-service-1.0-SNAPSHOT.jar"
-    ;;
-
-  mbr)
-    JAR_FILE="otc-member-service-1.0-SNAPSHOT.jar"
-    ;;
-
-  acc)
-    JAR_FILE="otc-account-service-1.0-SNAPSHOT.jar"
-    ;;
-
-  gw)
-    JAR_FILE="otc-zuul-gateway-1.0-SNAPSHOT.jar"
-    ;;
-
-  sc)
-    JAR_FILE="otc-schedule-1.0-SNAPSHOT.jar"
-    ;;
-
-  co)
-    JAR_FILE="otc-config-service-1.0-SNAPSHOT.jar"
-    ;;
-
-  r)
-    JAR_FILE="otc-registry-server-1.0-SNAPSHOT.jar"
-    ;;
-  adm)
-    JAR_FILE="otc-admin-web-1.0-SNAPSHOT.jar"
-    ;;
-  msg)
-    JAR_FILE="otc-message-service-1.0-SNAPSHOT.jar"
-    ;;
-  wltapi)
-    JAR_FILE="otc-wallet-api-1.0-SNAPSHOT.jar"
-    ;;
-  wltjob)
-    JAR_FILE="otc-wallet-job-1.0-SNAPSHOT.jar"
-    ;;
-  *)
-    ;;
-esac
-
-if [ "$PARAMS" -eq "0" ]; then
-  echo "Usage: start|stop|restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m]"
+if [ $# -lt 2 ]; then
+  echo "Usage: $SCRIPT_NAME start|stop|restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m] [-profile dev]"
   exit 1
 fi
+
 
 
 function run()
@@ -69,19 +25,19 @@ function run()
 	case $CMD in
 
 	"start" )
-		start
+		start $@
 	;;
 
 	"stop" )
-		stop
+		stop $@
 	;;
 
 	"restart" )
-		restart
+		restart $@
 	;;
 
 	* )
-		echo "[Info] please use $FILE [start|stop|restart]"
+  		echo "Usage: $SCRIPT_NAME start|stop|restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m]"
 	;;
 	
 	esac
@@ -89,80 +45,92 @@ function run()
 
 function start()
 {
-	if [ $PARAMS -lt 2 ]; then
-		echo "Usage: $FILE start|stop|restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m]"
-		exit 1
+	# Avoid survivor
+	sleep 1 
+
+	PIDS=`ps -ef | grep "$JAR_FILE" | grep -v grep |awk '{print $2}'`
+	
+	# Transfer to arr
+	str=${PIDS// / };
+	arr=($str);
+	echo ${#arr[*]}
+	if [ ${#arr[*]} -gt 2 ]; then
+	  echo "$WORK_DIR/$JAR_FILE is running, please kill the process first."
+	  exit 1
 	fi
 
-	PIDS=`ps -ef | grep java | grep -v grep | grep "$JAR_FILE" |awk '{print $2}'`
+	#if [ -n "$PIDS"  ]; then
+	#  for PID in $PIDS ; do
+	#      if [ "$PID"x != "x" -a $PID != $$ ]; then
+	#	echo "$WORK_DIR/$JAR_FILE is running, please kill the process first."
+	#	exit 1
+	#      fi
+	#    done
+	#fi
 
-	if [ -n "$PIDS"  ]; then
-	  for PID in $PIDS ; do
-	      if [ "$PID"x != "x" -a $PID != $$ ]; then
-		echo "$WORK_DIR/$JAR_FILE is running, please kill the process first."
-		exit 1
-	      fi
-	    done
-	fi
-
-	# Leave the parameters
-	shift
-
-	while [ $PARAMS -gt 3 ]
+	while [ $# -gt 2 ]
 	do
-	  case $PARAM in
+	  case $3 in
 		-log)
 		  shift
-		  LOG_FILE_NAME=$PARAM
+		  LOG_FILE_NAME=$3
+		  shift
+		  ;;
+
+		-profile)
+		  shift
+		  PROFILE=$3
 		  shift
 		  ;;
 
 		-Xms)
 		  JAVA_OPTS=$JAVA_OPTS" -Xms"
 		  shift
-		  JAVA_OPTS=$JAVA_OPTS"$PARAM"
+		  JAVA_OPTS=$JAVA_OPTS"$3"
 		  shift
 		  ;;
 
 		-Xmx)
 		  JAVA_OPTS=$JAVA_OPTS" -Xmx"
 		  shift
-		  JAVA_OPTS=$JAVA_OPTS"$PARAM"
+		  JAVA_OPTS=$JAVA_OPTS"$3"
 		  shift
 		  ;;
 	  esac
 	done
 
-	nohup java -Xmx1024m -jar $JAR_FILE --spring.profiles.active=test > /dev/null 2>&1 &
+	nohup java $JAVA_OPTS -jar $JAR_FILE --spring.profiles.active=$PROFILE > /dev/null 2>&1 &
 
 	echo "Start OK!!!"
 }
 
 function stop()
 {
-	if [ $PARAMS -ne 2 ]; then
-	  echo "Usage: $FILE stop <program_name>"
+	if [ $# -ne 2 ]; then
+	  echo "Usage: $SCRIPT_NAME stop <program_name>"
 	  exit
 	fi
 
 	PIDS=`ps -ef | grep java | grep -v grep | grep "$JAR_FILE" |awk '{print $2}'`
 
 	for PID in $PIDS ; do
+	      if [ "$PID"x != "x" -a $PID != $$ ]; then
 		echo "killing $PID ..."
 		kill -9 $PID > /dev/null 2>&1
+	      fi
 	done
+	echo "Stop OK!"
 }
 
 function restart()
 {
-	if [ $PARAMS -ne 2 ]; then
-	  echo "Usage: $FILE restart <program_name>"
+	if [ $# -lt 2 ]; then
+  	  echo "Usage: $SCRIPT_NAME restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m] [-profile dev]"
 	  exit
 	fi
 	
-	stop
-	sleep 1s
-	start
+	stop $@
+	start $@
 }
 
-run
+run $@
