@@ -18,7 +18,7 @@ PROFILE="default"
 LOG_FILE_NAME="/dev/null"
 
 if [ $# -lt 2 ]; then
-  echo "Usage: $SCRIPT_NAME start|stop|restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m] [-profile dev]"
+  echo "Usage: $SCRIPT_NAME start|stop|restart <jar_file> [-log xxx.log] [-Xms 500m] [-Xmx 1000m] [-profile dev]"
   exit 1
 fi
 
@@ -41,7 +41,7 @@ function run()
 	;;
 
 	* )
-  		echo "Usage: $SCRIPT_NAME start|stop|restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m]"
+  		echo "Usage: $SCRIPT_NAME start|stop|restart <jar_file> [-log xxx.log] [-Xms 500m] [-Xmx 1000m]"
 	;;
 	
 	esac
@@ -49,24 +49,13 @@ function run()
 
 function start()
 {
-	# Avoid survivor
-	sleep 1 
-
 	PIDS=`ps -ef | grep "java " | grep "$WORK_DIR/$JAR_FILE" | grep -v grep |awk '{print $2}'`
 	
-	# Transfer to arr
-	#str=${PIDS// / };
-	#arr=($str);
-	#if [ ${#arr[*]} -gt 2 ]; then
-	#  echo "$WORK_DIR/$JAR_FILE is running, please kill the process first."
-	#  exit 1
-	#fi
-
 	if [ -n "$PIDS"  ]; then
 	  for PID in $PIDS ; do
 	      if [ "$PID"x != "x" -a $PID != $$ ]; then
-		echo "$WORK_DIR/$JAR_FILE is running, please kill the process first."
-		exit 1
+		    echo "$WORK_DIR/$JAR_FILE is running, please kill the process first."
+		    exit 1
 	      fi
 	    done
 	fi
@@ -110,7 +99,7 @@ function start()
 function stop()
 {
 	if [ $# -ne 2 ]; then
-	  echo "Usage: $SCRIPT_NAME stop <program_name>"
+	  echo "Usage: $SCRIPT_NAME stop <jar_file>"
 	  exit
 	fi
 
@@ -118,8 +107,8 @@ function stop()
 
 	for PID in $PIDS ; do
 	      if [ "$PID"x != "x" -a $PID != $$ ]; then
-		echo "killing $PID ..."
-		kill -9 $PID > /dev/null 2>&1
+			echo "killing $PID ..."
+			kill -9 $PID > /dev/null 2>&1
 	      fi
 	done
 	echo -n "Stop OK!"
@@ -128,11 +117,15 @@ function stop()
 function restart()
 {
 	if [ $# -lt 2 ]; then
-  	  echo "Usage: $SCRIPT_NAME restart <program_name> [-log xxx.log] [-Xms 500m] [-Xmx 1000m] [-profile dev]"
+  	  echo "Usage: $SCRIPT_NAME restart <jar_file> [-log xxx.log] [-Xms 500m] [-Xmx 1000m] [-profile dev]"
 	  exit
 	fi
 	
 	stop $1 $2
+	
+	# Avoid survivor
+	sleep 1 
+	
 	start $@
 }
 
